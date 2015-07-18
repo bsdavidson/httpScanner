@@ -1,5 +1,7 @@
 # HttpScanner
 
+[![Build Status](https://travis-ci.org/bsdavidson/http_scanner.svg?branch=master)](https://travis-ci.org/bsdavidson/http_scanner)
+
 A small Ruby gem that will scan your local network for running HTTP services and return an array IP addresses.
 
 ## Installation
