@@ -3,7 +3,9 @@ require 'socket'
 require 'ipaddr'
 require 'net/http'
 
-class NetworkScanner
+require 'http_scanner/version'
+
+class HttpScanner
   def initialize
     @mutex = Mutex.new
     @results = []
@@ -72,25 +74,27 @@ class NetworkScanner
     loop do
       addr = queue.pop(true)
       uri = URI.parse("http://#{addr}/")
-      begin
-        http = Net::HTTP.start(uri.host, uri.port,
-                               read_timeout: 2,
-                               open_timeout: 2)
+      http = begin
+        Net::HTTP.start(uri.host, uri.port,
+                        read_timeout: 2,
+                        open_timeout: 2)
       rescue
+        nil
       end
       if http
+        body = ''
         begin
-          body = ''
           http.get('/') do |chunk|
             body += chunk
           end
-          if body.include?(signature)
-            print "!#{addr} "
-            results << addr
-          else
-            print '*'
-          end
         rescue
+          nil
+        end
+        if body.include?(signature)
+          print "!#{addr} "
+          results << addr
+        else
+          print '*'
         end
         http.finish
       else
