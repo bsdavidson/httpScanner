@@ -4,6 +4,8 @@
 
 A small Ruby gem that will scan your local network for running HTTP services and return an array IP addresses.
 
+Documentation is [available on RubyDoc.info](http://www.rubydoc.info/github/bsdavidson/http_scanner/).
+
 ## Installation
 
 Add this line to your application's Gemfile:

@@ -7,4 +7,11 @@ rescue LoadError
   nil
 end
 
+begin
+  require 'yard'
+  YARD::Rake::YardocTask.new
+rescue LoadError
+  nil
+end
+
 task default: :spec

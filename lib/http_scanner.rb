@@ -13,6 +13,12 @@ class HttpScanner
     @ip_range = current_ip_range
   end
 
+  # Scans the local network and returns an array of IP addresses of systems that
+  # return text containing the signature.
+  #
+  # @param signature [String] Case sensitive string to be searched for in the
+  #   HTML of scanned systems.
+  # @return [Array] IP addresses of systems with a positive match.
   def scan(signature)
     addresses = get_ip_range(@ip_range[:ip_start], @ip_range[:ip_end])
     addresses.each do |address|
