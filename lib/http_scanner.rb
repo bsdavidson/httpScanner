@@ -1,16 +1,23 @@
-require 'pp'
-require 'socket'
 require 'ipaddr'
+require 'logger'
 require 'net/http'
+require 'socket'
 
 require 'http_scanner/version'
 
 class HttpScanner
+  attr_writer :logger
+
   def initialize
     @mutex = Mutex.new
-    @results = []
     @queue = Queue.new
-    @ip_range = current_ip_range
+    @results = []
+  end
+
+  def logger
+    @logger ||= Logger.new(STDERR).tap do |logger|
+      logger.progname = 'http_scanner'
+    end
   end
 
   # Scans the local network and returns an array of IP addresses of systems that
@@ -18,15 +25,19 @@ class HttpScanner
   #
   # @param signature [String] Case sensitive string to be searched for in the
   #   HTML of scanned systems.
+  # @param opts [Hash] Additional options.
+  # @option opts [Fixnum] :threads Size of the thread pool to use to scan the
+  #   local network. Defaults to 255 threads.
   # @return [Array] IP addresses of systems with a positive match.
-  def scan(signature)
-    addresses = get_ip_range(@ip_range[:ip_start], @ip_range[:ip_end])
+  def scan(signature, opts = {})
+    ip_range = local_ip_range
+    addresses = get_ips_in_range(ip_range[:ip_start], ip_range[:ip_end])
     addresses.each do |address|
       @queue << address
     end
     threads = []
 
-    255.times do
+    (opts[:threads] || 255).times do
       threads << Thread.new do
         thread_results = scan_thread(@queue, signature)
         @mutex.synchronize do
@@ -39,7 +50,8 @@ class HttpScanner
       begin
         thread.join
       rescue => e
-        p "Thread Join Error: #{e}"
+        logger.error "Caught error in thread:"
+        logger.error e
       end
     end
     @results
@@ -47,23 +59,20 @@ class HttpScanner
 
   protected
 
-  def current_ip_range
+  def local_ip_range
     ip_local = local_ip
-    p '#####################################'
-    p '#                                   #'
-    p '#' + "YOUR IP: #{ip_local}".center(35) + '#'
-    p '#                                   #'
-    p '#####################################'
     ip = ip_local.split('.')
-    ip_start = "#{ip[0]}.#{ip[1]}.#{ip[2]}.0"
+    ip_start = "#{ip[0]}.#{ip[1]}.#{ip[2]}.1"
     ip_end = "#{ip[0]}.#{ip[1]}.#{ip[2]}.255"
+    logger.debug "Local IP address: #{ip_local}"
+    logger.debug "Local IP range: #{ip_start}...#{ip_end}"
     {
       ip_start: ip_start,
       ip_end: ip_end
     }
   end
 
-  def get_ip_range(start_ip, end_ip)
+  def get_ips_in_range(start_ip, end_ip)
     start_ip = IPAddr.new(start_ip)
     end_ip = IPAddr.new(end_ip)
     (start_ip..end_ip).map(&:to_s)
@@ -85,6 +94,7 @@ class HttpScanner
                         read_timeout: 2,
                         open_timeout: 2)
       rescue
+        logger.debug('#{addr}: connection error')
         nil
       end
       if http
@@ -97,14 +107,12 @@ class HttpScanner
           nil
         end
         if body.include?(signature)
-          print "!#{addr} "
+          logger.debug "#{addr}: string found"
           results << addr
         else
-          print '*'
+          logger.debug "#{addr}: string not found"
         end
         http.finish
-      else
-        print '.'
       end
     end
   rescue ThreadError
